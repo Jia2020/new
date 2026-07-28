@@ -1,0 +1,6 @@
+{
+  "name": "语音转文字工具",
+  "description": "多语言实时语音转文字、音频文件识别与智能标点排版工具",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
