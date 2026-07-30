@@ -444,7 +444,7 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
           </div>
 
           {/* Recording Status & Waveform Canvas */}
-          {recordingState !== 'idle' ? (
+          {recordingState !== 'idle' && (
             <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-bold border border-sky-200 dark:border-sky-900">
                 <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
@@ -458,10 +458,6 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
                 height={28}
                 className="rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
               />
-            </div>
-          ) : (
-            <div className="text-[11px] text-zinc-400 hidden lg:block text-right">
-              自然停顿将自动生成句号、逗号与结构标点
             </div>
           )}
 

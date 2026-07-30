@@ -18,7 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSearchQuery,
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 transition-colors py-2">
+    <header className="sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 transition-colors pt-3.5 sm:pt-5 pb-2.5">
       <div className="max-w-md w-full mx-auto px-3 space-y-2">
         
         {/* Main Mobile Top Row: Logo, Mode Switcher */}

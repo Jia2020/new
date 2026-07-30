@@ -129,7 +129,7 @@ export default function App() {
       />
 
       {/* Main Container - Optimized for Mobile Portrait View */}
-      <main className="flex-1 max-w-md w-full mx-auto px-3 py-3 space-y-3">
+      <main className="flex-1 max-w-md w-full mx-auto px-3 py-4 sm:py-6 space-y-4">
         
         {/* Workspace Toolbar: Export & Quick Actions */}
         {currentText.trim() && mode !== 'history' && (
