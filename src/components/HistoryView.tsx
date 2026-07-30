@@ -86,7 +86,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     switch (langCode) {
       case 'zh-CN':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 font-bold border border-red-200 dark:border-red-800">
+          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800">
             🇨🇳 中文普通话
           </span>
         );
@@ -138,7 +138,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 placeholder="搜索内容或标题..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-red-500"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </div>
 
@@ -183,7 +183,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             onClick={() => setSelectedLanguageFilter('zh-CN')}
             className={`px-3 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               selectedLanguageFilter === 'zh-CN'
-                ? 'bg-red-600 text-white font-bold shadow-xs'
+                ? 'bg-sky-500 text-white font-bold shadow-xs'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
             }`}
           >

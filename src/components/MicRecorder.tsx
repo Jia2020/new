@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle, Copy, Type } from 'lucide-react';
 import { LanguageCode, FontSize, TranscriptionRecord } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 
 interface MicRecorderProps {
   fontSize: FontSize;
+  setFontSize?: (size: FontSize) => void;
   searchQuery: string;
   onSaveRecord: (record: TranscriptionRecord, audioBlob: Blob | null) => void;
   currentText: string;
   setCurrentText: (text: string) => void;
+  onCopyAll?: () => void;
+  copied?: boolean;
 }
 
 export const MicRecorder: React.FC<MicRecorderProps> = ({
   fontSize,
+  setFontSize,
   searchQuery,
   onSaveRecord,
   currentText,
   setCurrentText,
+  onCopyAll,
+  copied,
 }) => {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
   const [language, setLanguage] = useState<LanguageCode>('zh-CN');
@@ -120,7 +126,7 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
 
         for (let i = 0; i < bufferLength; i++) {
           const barHeight = (dataArray[i] / 255) * canvas.height;
-          ctx.fillStyle = i % 2 === 0 ? '#ef4444' : '#f87171';
+          ctx.fillStyle = i % 2 === 0 ? '#0284c7' : '#38bdf8';
           ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
           x += barWidth;
         }
@@ -378,7 +384,7 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
               <button
                 id="btn-start-record"
                 onClick={handleStartRecording}
-                className="group relative flex items-center gap-2.5 px-5 py-2.5 sm:px-6 sm:py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-md shadow-red-500/20 active:scale-95 transition-all cursor-pointer"
+                className="group relative flex items-center gap-2.5 px-5 py-2.5 sm:px-6 sm:py-3.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-2xl shadow-md shadow-sky-500/20 active:scale-95 transition-all cursor-pointer"
               >
                 <div className="w-3.5 h-3.5 rounded-full bg-white group-hover:scale-110 transition-transform animate-ping absolute left-6 opacity-30" />
                 <Mic className="w-4 h-4 sm:w-5 sm:h-5 relative" />
@@ -413,7 +419,7 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
                   onClick={handleStopRecording}
                   className="flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
                 >
-                  <Square className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                  <Square className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
                   结束转写
                 </button>
               </div>
@@ -440,8 +446,8 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
           {/* Recording Status & Waveform Canvas */}
           {recordingState !== 'idle' ? (
             <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-mono font-bold border border-red-200 dark:border-red-900">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-bold border border-sky-200 dark:border-sky-900">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
                 {recordingState === 'recording' ? '转写中' : '已暂停'} ({formatSeconds(recordingSeconds)})
               </div>
 
@@ -484,30 +490,72 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
       <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-6 landscape:p-3 border border-zinc-200 dark:border-zinc-800 shadow-xs transition-colors space-y-3 sm:space-y-4">
         
         <div className="flex flex-wrap items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2.5 gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-              <span>✍️ 实时转写与文本编辑区</span>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              ✍️ 文本编辑区
             </h2>
-            <span className="text-[10px] sm:text-[11px] text-zinc-400 font-normal hidden xs:inline">
-              （可随时打字键盘纠错）
-            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Font Size Selector */}
+            {setFontSize && (
+              <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <span className="px-1 text-[10px] text-zinc-400 font-medium flex items-center gap-0.5">
+                  <Type className="w-2.5 h-2.5" />
+                </span>
+                {(['S', 'M', 'L', 'XL'] as FontSize[]).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setFontSize(size)}
+                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer ${
+                      fontSize === size
+                        ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-xs font-bold'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Copy Button */}
+            {onCopyAll && (
+              <button
+                id="btn-copy-in-editor"
+                onClick={onCopyAll}
+                disabled={!currentText.trim()}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 shadow-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                title="复制全部文字"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-[11px]">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-zinc-600 dark:text-zinc-300 shrink-0" />
+                    <span className="text-[11px]">复制</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* AI Auto-Punctuation Polish Button */}
             <button
               id="btn-ai-polish"
               onClick={handleAIPolish}
               disabled={isPolishing || !currentText.trim()}
-              className="flex items-center gap-1 px-2.5 py-1 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-xs font-semibold active:scale-95 transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
-              title="使用 AI Gemini 自动补充标点、停顿断句与排版优化"
+              className="flex items-center gap-1 px-2 py-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-semibold active:scale-95 transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              title="智能标点断句与排版优化"
             >
               {isPolishing ? (
                 <RefreshCw className="w-3 h-3 animate-spin" />
               ) : (
-                <Sparkles className="w-3 h-3 text-red-500" />
+                <Sparkles className="w-3 h-3 text-sky-500" />
               )}
-              <span>智能标点断句</span>
+              <span className="text-[11px]">智能标点</span>
             </button>
 
             {/* Clear current text */}
@@ -518,7 +566,7 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
                   setCurrentText('');
                   finalizedTextRef.current = '';
                 }}
-                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 px-1.5 py-0.5"
+                className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 px-1 py-0.5"
               >
                 清空
               </button>
@@ -539,9 +587,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
             placeholder={
               recordingState === 'recording'
                 ? '🎙️ 正在实时转写您的语音，说话内容将秒级呈现在这里...'
-                : '点击上方红色按钮开始录音转写，或直接在此框输入/黏贴文字...'
+                : '点击上方蓝色按钮开始录音转写，或直接在此框输入/黏贴文字...'
             }
-            className={`w-full min-h-[150px] sm:min-h-[220px] landscape:min-h-[120px] p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-sans resize-y ${getFontSizeClass(
+            className={`w-full min-h-[150px] sm:min-h-[220px] landscape:min-h-[120px] p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all font-sans resize-y ${getFontSizeClass(
               fontSize
             )}`}
           />

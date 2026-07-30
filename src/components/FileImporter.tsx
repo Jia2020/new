@@ -1,20 +1,26 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileAudio, Sparkles, RefreshCw, AlertCircle, CheckCircle, Music } from 'lucide-react';
+import { Upload, FileAudio, Sparkles, RefreshCw, AlertCircle, CheckCircle, Music, Copy, Check, Type } from 'lucide-react';
 import { LanguageCode, FontSize, TranscriptionRecord } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 
 interface FileImporterProps {
   fontSize: FontSize;
+  setFontSize?: (size: FontSize) => void;
   onSaveRecord: (record: TranscriptionRecord, audioBlob: Blob | null) => void;
   currentText: string;
   setCurrentText: (text: string) => void;
+  onCopyAll?: () => void;
+  copied?: boolean;
 }
 
 export const FileImporter: React.FC<FileImporterProps> = ({
   fontSize,
+  setFontSize,
   onSaveRecord,
   currentText,
   setCurrentText,
+  onCopyAll,
+  copied,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -163,8 +169,8 @@ export const FileImporter: React.FC<FileImporterProps> = ({
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-2xl p-5 sm:p-8 text-center cursor-pointer transition-all ${
             isDragOver
-              ? 'border-red-500 bg-red-50/50 dark:bg-red-950/20'
-              : 'border-zinc-300 dark:border-zinc-700 hover:border-red-400 dark:hover:border-red-500/80 bg-zinc-50/50 dark:bg-zinc-800/30'
+              ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/20'
+              : 'border-zinc-300 dark:border-zinc-700 hover:border-sky-400 dark:hover:border-sky-500/80 bg-zinc-50/50 dark:bg-zinc-800/30'
           }`}
         >
           <input
@@ -176,7 +182,7 @@ export const FileImporter: React.FC<FileImporterProps> = ({
             className="hidden"
           />
 
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-xs">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-xs">
             <Upload className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
 
@@ -198,7 +204,7 @@ export const FileImporter: React.FC<FileImporterProps> = ({
                 id="btn-start-file-transcribe"
                 onClick={handleTranscribeFile}
                 disabled={isTranscribing}
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-sm active:scale-95 transition-all disabled:opacity-50 cursor-pointer text-xs sm:text-sm"
+                className="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl shadow-sm active:scale-95 transition-all disabled:opacity-50 cursor-pointer text-xs sm:text-sm"
               >
                 {isTranscribing ? (
                   <>
@@ -228,19 +234,66 @@ export const FileImporter: React.FC<FileImporterProps> = ({
 
       {/* Editable Transcribed Text Display */}
       <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-6 landscape:p-3 border border-zinc-200 dark:border-zinc-800 shadow-xs transition-colors space-y-3 sm:space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2.5">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2.5 flex-wrap gap-2">
           <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            ✍️ 文件识别结果 (实时可编辑框)
+            ✍️ 文件识别结果
           </h3>
-          {currentText && (
-            <button
-              id="btn-clear-file-text"
-              onClick={() => setCurrentText('')}
-              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-            >
-              清空文字
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Font Size Selector */}
+            {setFontSize && (
+              <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <span className="px-1 text-[10px] text-zinc-400 font-medium flex items-center gap-0.5">
+                  <Type className="w-2.5 h-2.5" />
+                </span>
+                {(['S', 'M', 'L', 'XL'] as FontSize[]).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setFontSize(size)}
+                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer ${
+                      fontSize === size
+                        ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-xs font-bold'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Copy Button */}
+            {onCopyAll && (
+              <button
+                id="btn-copy-file-text"
+                onClick={onCopyAll}
+                disabled={!currentText.trim()}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-bold rounded-lg bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 shadow-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                title="复制全部文字"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-[11px]">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-zinc-600 dark:text-zinc-300 shrink-0" />
+                    <span className="text-[11px]">复制</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {currentText && (
+              <button
+                id="btn-clear-file-text"
+                onClick={() => setCurrentText('')}
+                className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 px-1 py-0.5"
+              >
+                清空
+              </button>
+            )}
+          </div>
         </div>
 
         <textarea
@@ -248,7 +301,7 @@ export const FileImporter: React.FC<FileImporterProps> = ({
           value={currentText}
           onChange={(e) => setCurrentText(e.target.value)}
           placeholder="上传音频文件并点击“开始 AI 高精转写”，转换出的文本将呈现在此..."
-          className={`w-full min-h-[150px] sm:min-h-[220px] landscape:min-h-[120px] p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-sans resize-y ${getFontSizeClass(
+          className={`w-full min-h-[150px] sm:min-h-[220px] landscape:min-h-[120px] p-3 sm:p-4 bg-zinc-50/50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all font-sans resize-y ${getFontSizeClass(
             fontSize
           )}`}
         />

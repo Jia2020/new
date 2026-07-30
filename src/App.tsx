@@ -124,25 +124,18 @@ export default function App() {
         setMode={setMode}
         theme={theme}
         setTheme={setTheme}
-        fontSize={fontSize}
-        setFontSize={setFontSize}
-        cloudUser={cloudUser}
-        onOpenCloudModal={() => setIsCloudModalOpen(true)}
-        onCopyAll={handleCopyAll}
-        copied={copied}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        hasCurrentContent={Boolean(currentText.trim())}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 landscape:py-2 space-y-3 sm:space-y-6">
+      {/* Main Container - Optimized for Mobile Portrait View */}
+      <main className="flex-1 max-w-md w-full mx-auto px-3 py-3 space-y-3">
         
         {/* Workspace Toolbar: Export & Quick Actions */}
         {currentText.trim() && mode !== 'history' && (
           <div className="bg-white dark:bg-zinc-900 rounded-2xl p-3 sm:p-4 border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-wrap items-center justify-between gap-2.5 animate-fade-in">
             <div className="flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <FileText className="w-3.5 h-3.5 text-sky-500 shrink-0" />
               <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                 字数统计: {currentText.length} 字
               </span>
@@ -179,19 +172,25 @@ export default function App() {
         {mode === 'mic' && (
           <MicRecorder
             fontSize={fontSize}
+            setFontSize={setFontSize}
             searchQuery={searchQuery}
             onSaveRecord={handleSaveRecord}
             currentText={currentText}
             setCurrentText={setCurrentText}
+            onCopyAll={handleCopyAll}
+            copied={copied}
           />
         )}
 
         {mode === 'file' && (
           <FileImporter
             fontSize={fontSize}
+            setFontSize={setFontSize}
             onSaveRecord={handleSaveRecord}
             currentText={currentText}
             setCurrentText={setCurrentText}
+            onCopyAll={handleCopyAll}
+            copied={copied}
           />
         )}
 

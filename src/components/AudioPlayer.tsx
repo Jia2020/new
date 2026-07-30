@@ -36,13 +36,30 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+      setCurrentTime(audioRef.current.currentTime || 0);
+      if (audioRef.current.duration && isFinite(audioRef.current.duration) && !isNaN(audioRef.current.duration)) {
+        setDuration(audioRef.current.duration);
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
-      setDuration(audioRef.current.duration || 0);
+      const dur = audioRef.current.duration;
+      if (isFinite(dur) && !isNaN(dur) && dur > 0) {
+        setDuration(dur);
+      } else {
+        // Attempt to calculate duration for browser recorded audio blobs (Chrome WebM issue)
+        audioRef.current.currentTime = 1e10;
+        audioRef.current.ontimeupdate = () => {
+          if (audioRef.current) {
+            audioRef.current.ontimeupdate = handleTimeUpdate;
+            const realDur = audioRef.current.duration;
+            setDuration(isFinite(realDur) && !isNaN(realDur) ? realDur : 0);
+            audioRef.current.currentTime = 0;
+          }
+        };
+      }
       audioRef.current.playbackRate = playbackRate;
     }
   };
@@ -70,7 +87,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
   };
 
   const formatTime = (secs: number) => {
-    if (isNaN(secs)) return '00:00';
+    if (!secs || isNaN(secs) || !isFinite(secs) || secs <= 0) return '00:00';
     const mins = Math.floor(secs / 60);
     const remSecs = Math.floor(secs % 60);
     return `${mins.toString().padStart(2, '0')}:${remSecs.toString().padStart(2, '0')}`;
@@ -103,7 +120,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
           <button
             id="audio-btn-play"
             onClick={togglePlay}
-            className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-md active:scale-95 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-full bg-sky-500 hover:bg-sky-400 text-white flex items-center justify-center shadow-md active:scale-95 transition-all cursor-pointer"
           >
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
           </button>
@@ -134,11 +151,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
             id="audio-slider-progress"
             type="range"
             min="0"
-            max={duration || 100}
+            max={isFinite(duration) && duration > 0 ? duration : 100}
             step="0.1"
             value={currentTime}
             onChange={handleSeek}
-            className="w-full accent-red-500 h-1.5 bg-zinc-700 rounded-lg cursor-pointer"
+            className="w-full accent-sky-500 h-1.5 bg-zinc-700 rounded-lg cursor-pointer"
           />
 
           <span className="text-xs font-mono text-zinc-400 w-10">
@@ -156,7 +173,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
               onClick={() => handleSpeedChange(speed)}
               className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
                 playbackRate === speed
-                  ? 'bg-red-600 text-white font-bold'
+                  ? 'bg-sky-500 text-white font-bold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -171,7 +188,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, title, onEnded })
           onClick={toggleMute}
           className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
         >
-          {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+          {isMuted ? <VolumeX className="w-4 h-4 text-sky-400" /> : <Volume2 className="w-4 h-4" />}
         </button>
 
       </div>
