@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle, Copy, Type, X } from 'lucide-react';
+import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle, Copy, Type, X, Edit2 } from 'lucide-react';
 import { LanguageCode, FontSize, TranscriptionRecord } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 
@@ -45,8 +45,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     recordingStateRef.current = recordingState;
   }, [recordingState]);
 
-  const finalizedTextRef = useRef<string>('');
-  const lastFinalIndexRef = useRef<number>(-1);
+  const baseTextRef = useRef<string>('');
+  const sessionFinalTextRef = useRef<string>('');
+  const sessionInterimTextRef = useRef<string>('');
 
   const recordingSecondsRef = useRef(recordingSeconds);
   useEffect(() => {
@@ -54,6 +55,20 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
   }, [recordingSeconds]);
 
   const isCancellingRef = useRef<boolean>(false);
+
+  const getDefaultTitle = () => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+    return `麦克风录音 (${timeStr})`;
+  };
+
+  const [recordingTitle, setRecordingTitle] = useState<string>(() => getDefaultTitle());
+  const [isCustomTitle, setIsCustomTitle] = useState<boolean>(false);
+
+  const recordingTitleRef = useRef(recordingTitle);
+  useEffect(() => {
+    recordingTitleRef.current = recordingTitle;
+  }, [recordingTitle]);
 
   const languageRef = useRef(language);
   useEffect(() => {
@@ -149,15 +164,62 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     }
   };
 
+  // Freeze active session text into baseTextRef to avoid duplication across pause/resume/restart
+  const freezeSessionIntoBase = () => {
+    const base = baseTextRef.current.trim();
+    const finalPart = sessionFinalTextRef.current.trim();
+    const interimPart = sessionInterimTextRef.current.trim();
+
+    let sessionText = finalPart;
+    if (interimPart) {
+      let formatted = interimPart;
+      if (/[a-zA-Z]/.test(formatted) && !/[.!?]$/.test(formatted)) {
+        formatted += '.';
+      } else if (!/[。！？.!?，,]$/.test(formatted)) {
+        formatted += '。';
+      }
+      sessionText = sessionText ? sessionText + ' ' + formatted : formatted;
+    }
+
+    if (sessionText) {
+      baseTextRef.current = base ? base + ' ' + sessionText : sessionText;
+    }
+
+    sessionFinalTextRef.current = '';
+    sessionInterimTextRef.current = '';
+    setCurrentText(baseTextRef.current);
+  };
+
+  // Update real-time display combining base text + current session final + current session interim
+  const updateCombinedTextDisplay = () => {
+    const base = baseTextRef.current.trim();
+    const finalPart = sessionFinalTextRef.current.trim();
+    const interimPart = sessionInterimTextRef.current.trim();
+
+    const parts: string[] = [];
+    if (base) parts.push(base);
+    if (finalPart) parts.push(finalPart);
+    if (interimPart) parts.push(interimPart);
+
+    setCurrentText(parts.join(' '));
+  };
+
   // Start Live Recording
   const handleStartRecording = async () => {
     setErrorMessage(null);
-    setCurrentText(''); // Auto-clear previous transcription text when starting new speech session
-    finalizedTextRef.current = '';
-    lastFinalIndexRef.current = -1;
+    setCurrentText('');
+    baseTextRef.current = '';
+    sessionFinalTextRef.current = '';
+    sessionInterimTextRef.current = '';
     setAudioUrl(null);
     setCurrentBlob(null);
     audioChunksRef.current = [];
+
+    if (!isCustomTitle) {
+      const freshTitle = getDefaultTitle();
+      setRecordingTitle(freshTitle);
+      recordingTitleRef.current = freshTitle;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -189,9 +251,10 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
         const finalLang = languageRef.current;
 
         // Auto save record session directly to IndexedDB & History
+        const recordTitle = recordingTitleRef.current.trim() || getDefaultTitle();
         const newRecord: TranscriptionRecord = {
           id: 'rec-' + Date.now(),
-          title: `麦克风录音 (${new Date().toLocaleTimeString()})`,
+          title: recordTitle,
           text: finalText,
           audioBlobUrl: url,
           duration: finalDuration,
@@ -217,42 +280,34 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
         if (language === 'zh-CN') recognition.lang = 'zh-CN';
         else if (language === 'en-US') recognition.lang = 'en-US';
         else if (language === 'fr-FR') recognition.lang = 'fr-FR';
-        else recognition.lang = 'zh-CN'; // Default auto multi-lang
+        else recognition.lang = 'zh-CN';
 
         recognition.onresult = (event: any) => {
-          let interimAcc = '';
+          const finalParts: string[] = [];
+          const interimParts: string[] = [];
 
           for (let i = 0; i < event.results.length; ++i) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              if (i > lastFinalIndexRef.current) {
-                let formattedChunk = transcript.trim();
-                if (formattedChunk) {
-                  // Auto punctuation if needed
-                  if (/[a-zA-Z]/.test(formattedChunk) && !/[.!?]$/.test(formattedChunk)) {
-                    formattedChunk += '. ';
-                  } else if (!/[。！？.!?，,]$/.test(formattedChunk)) {
-                    formattedChunk += '。';
-                  }
-                  const prev = finalizedTextRef.current.trim();
-                  finalizedTextRef.current = prev ? prev + ' ' + formattedChunk : formattedChunk;
-                }
-                lastFinalIndexRef.current = i;
+            const item = event.results[i];
+            const transcript = item[0]?.transcript?.trim();
+            if (!transcript) continue;
+
+            if (item.isFinal) {
+              let formatted = transcript;
+              if (/[a-zA-Z]/.test(formatted) && !/[.!?]$/.test(formatted)) {
+                formatted += '.';
+              } else if (!/[。！？.!?，,]$/.test(formatted)) {
+                formatted += '。';
               }
+              finalParts.push(formatted);
             } else {
-              interimAcc += transcript;
+              interimParts.push(transcript);
             }
           }
 
-          const currentFinal = finalizedTextRef.current.trim();
-          const currentInterim = interimAcc.trim();
+          sessionFinalTextRef.current = finalParts.join(' ');
+          sessionInterimTextRef.current = interimParts.join(' ');
 
-          let combined = currentFinal;
-          if (currentInterim) {
-            combined = combined ? combined + ' ' + currentInterim : currentInterim;
-          }
-
-          setCurrentText(combined);
+          updateCombinedTextDisplay();
         };
 
         recognition.onerror = (event: any) => {
@@ -263,13 +318,14 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
         };
 
         recognition.onend = () => {
+          freezeSessionIntoBase();
+
           // If still recording state, restart recognition for uninterrupted stream
           if (recordingStateRef.current === 'recording' && recognitionRef.current) {
             try {
-              lastFinalIndexRef.current = -1;
               recognitionRef.current.start();
             } catch (e) {
-              // Ignore restart error if already ended
+              // Ignore restart error
             }
           }
         };
@@ -289,27 +345,28 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
   // Pause Recording
   const handlePauseRecording = () => {
     if (recordingState === 'recording') {
+      setRecordingState('paused');
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.pause();
       }
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch (e) {}
       }
-      setRecordingState('paused');
     }
   };
 
   // Resume Recording
   const handleResumeRecording = () => {
     if (recordingState === 'paused') {
+      setRecordingState('recording');
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
         mediaRecorderRef.current.resume();
       }
-      lastFinalIndexRef.current = -1;
+      sessionFinalTextRef.current = '';
+      sessionInterimTextRef.current = '';
       if (recognitionRef.current) {
         try { recognitionRef.current.start(); } catch (e) {}
       }
-      setRecordingState('recording');
     }
   };
 
@@ -318,6 +375,8 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     isCancellingRef.current = false;
     setRecordingState('idle');
     stopVisualizer();
+
+    freezeSessionIntoBase();
 
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
@@ -332,6 +391,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
   // Cancel Recording without Saving
   const handleCancelRecording = () => {
     isCancellingRef.current = true;
+    baseTextRef.current = '';
+    sessionFinalTextRef.current = '';
+    sessionInterimTextRef.current = '';
     setRecordingState('idle');
     stopVisualizer();
 
@@ -345,7 +407,6 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     }
 
     setCurrentText('');
-    finalizedTextRef.current = '';
     setAudioUrl(null);
     setCurrentBlob(null);
     audioChunksRef.current = [];
@@ -366,7 +427,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
       const data = await res.json();
       if (data.text) {
         setCurrentText(data.text);
-        finalizedTextRef.current = data.text;
+        baseTextRef.current = data.text;
+        sessionFinalTextRef.current = '';
+        sessionInterimTextRef.current = '';
       } else if (data.error) {
         setErrorMessage(data.error);
       }
@@ -406,7 +469,24 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
       {/* Recording Control Banner */}
       <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 shadow-xs transition-all space-y-3.5">
         
-        {/* Row 1: Language Selector (Full Width) */}
+        {/* Row 1: Recording Title (Editable) */}
+        <div className="w-full flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+          <Edit2 className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">录音名称:</span>
+          <input
+            id="input-recording-title"
+            type="text"
+            value={recordingTitle}
+            onChange={(e) => {
+              setRecordingTitle(e.target.value);
+              setIsCustomTitle(true);
+            }}
+            placeholder="请输入录音名称..."
+            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none"
+          />
+        </div>
+
+        {/* Row 2: Language Selector (Full Width) */}
         <div className="w-full flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
           <Globe className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">识别语言:</span>
@@ -591,7 +671,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
                 id="btn-clear-current-text"
                 onClick={() => {
                   setCurrentText('');
-                  finalizedTextRef.current = '';
+                  baseTextRef.current = '';
+                  sessionFinalTextRef.current = '';
+                  sessionInterimTextRef.current = '';
                 }}
                 className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 px-1 py-0.5"
               >
@@ -609,7 +691,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
             onChange={(e) => {
               const val = e.target.value;
               setCurrentText(val);
-              finalizedTextRef.current = val;
+              baseTextRef.current = val;
+              sessionFinalTextRef.current = '';
+              sessionInterimTextRef.current = '';
             }}
             placeholder={
               recordingState === 'recording'

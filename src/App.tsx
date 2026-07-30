@@ -219,16 +219,7 @@ export default function App() {
         onSetRecords={setRecords}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 py-4 text-center text-xs text-zinc-400 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>© 语音转文字 Pro · 多语言高精准实时转写引擎</span>
-          <span className="flex items-center gap-1 text-[11px]">
-            <Sparkles className="w-3 h-3 text-red-500" />
-            支持中/英/法/混合语言 · 自动停顿断句 · 边听边记双重保存
-          </span>
-        </div>
-      </footer>
+
 
     </div>
   );
