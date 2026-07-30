@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle, Copy, Type } from 'lucide-react';
+import { Mic, MicOff, Pause, Play, Square, Sparkles, RefreshCw, Volume2, Globe, Check, AlertCircle, Copy, Type, X } from 'lucide-react';
 import { LanguageCode, FontSize, TranscriptionRecord } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 
@@ -52,6 +52,8 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
   useEffect(() => {
     recordingSecondsRef.current = recordingSeconds;
   }, [recordingSeconds]);
+
+  const isCancellingRef = useRef<boolean>(false);
 
   const languageRef = useRef(language);
   useEffect(() => {
@@ -172,6 +174,11 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
       };
 
       mediaRecorder.onstop = () => {
+        if (isCancellingRef.current) {
+          isCancellingRef.current = false;
+          return;
+        }
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
@@ -306,8 +313,9 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     }
   };
 
-  // Stop Recording
+  // Stop Recording & Save to History
   const handleStopRecording = () => {
+    isCancellingRef.current = false;
     setRecordingState('idle');
     stopVisualizer();
 
@@ -319,6 +327,28 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
     }
+  };
+
+  // Cancel Recording without Saving
+  const handleCancelRecording = () => {
+    isCancellingRef.current = true;
+    setRecordingState('idle');
+    stopVisualizer();
+
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+    }
+
+    setCurrentText('');
+    finalizedTextRef.current = '';
+    setAudioUrl(null);
+    setCurrentBlob(null);
+    audioChunksRef.current = [];
   };
 
   // AI Smart Auto-Punctuation & Format Polish via Gemini API
@@ -374,94 +404,95 @@ export const MicRecorder: React.FC<MicRecorderProps> = ({
     <div className="space-y-6">
       
       {/* Recording Control Banner */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-6 landscape:p-3 border border-zinc-200 dark:border-zinc-800 shadow-xs transition-all">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-6">
-          
-          {/* Main Action Buttons: Start / Pause / Resume / Stop */}
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-            
-            {recordingState === 'idle' ? (
-              <button
-                id="btn-start-record"
-                onClick={handleStartRecording}
-                className="group relative flex items-center gap-2.5 px-5 py-2.5 sm:px-6 sm:py-3.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-2xl shadow-md shadow-sky-500/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <div className="w-3.5 h-3.5 rounded-full bg-white group-hover:scale-110 transition-transform animate-ping absolute left-6 opacity-30" />
-                <Mic className="w-4 h-4 sm:w-5 sm:h-5 relative" />
-                <span className="text-xs sm:text-sm tracking-wide">点击开始说话</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                {/* Pause/Resume button */}
-                {recordingState === 'recording' ? (
-                  <button
-                    id="btn-pause-record"
-                    onClick={handlePauseRecording}
-                    className="flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-xl shadow-xs active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
-                  >
-                    <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    暂停
-                  </button>
-                ) : (
-                  <button
-                    id="btn-resume-record"
-                    onClick={handleResumeRecording}
-                    className="flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-xs active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
-                  >
-                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    继续
-                  </button>
-                )}
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 shadow-xs transition-all space-y-3.5">
+        
+        {/* Row 1: Language Selector (Full Width) */}
+        <div className="w-full flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/80 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+          <Globe className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">识别语言:</span>
+          <select
+            id="select-language-mode"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+            disabled={recordingState !== 'idle'}
+            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
+          >
+            <option value="zh-CN" className="dark:bg-zinc-800">🇨🇳 中文普通话</option>
+            <option value="en-US" className="dark:bg-zinc-800">🇺🇸 English</option>
+            <option value="fr-FR" className="dark:bg-zinc-800">🇫🇷 Français</option>
+          </select>
+        </div>
 
-                {/* Stop button */}
+        {/* Row 2: Action Buttons */}
+        <div className="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3 py-1">
+          {recordingState === 'idle' ? (
+            <button
+              id="btn-start-record"
+              onClick={handleStartRecording}
+              className="w-full sm:w-auto group relative flex items-center justify-center gap-2.5 px-6 py-3 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-2xl shadow-md shadow-sky-500/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <div className="w-3.5 h-3.5 rounded-full bg-white group-hover:scale-110 transition-transform animate-ping absolute left-6 opacity-30" />
+              <Mic className="w-4 h-4 sm:w-5 sm:h-5 relative" />
+              <span className="text-xs sm:text-sm tracking-wide">点击开始说话</span>
+            </button>
+          ) : (
+            <div className="w-full flex items-center justify-center gap-2 flex-wrap">
+              {/* Pause/Resume button */}
+              {recordingState === 'recording' ? (
                 <button
-                  id="btn-stop-record"
-                  onClick={handleStopRecording}
-                  className="flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
+                  id="btn-pause-record"
+                  onClick={handlePauseRecording}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-xl shadow-xs active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
                 >
-                  <Square className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
-                  结束转写
+                  <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  暂停
                 </button>
-              </div>
-            )}
+              ) : (
+                <button
+                  id="btn-resume-record"
+                  onClick={handleResumeRecording}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-xs active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
+                >
+                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  继续
+                </button>
+              )}
 
-            {/* Language Selector */}
-            <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700">
-              <Globe className="w-3.5 h-3.5 text-zinc-400 ml-1 hidden sm:block" />
-              <select
-                id="select-language-mode"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-                disabled={recordingState !== 'idle'}
-                className="bg-transparent text-xs font-semibold text-zinc-800 dark:text-zinc-200 pr-1 py-1 focus:outline-none cursor-pointer max-w-[140px] sm:max-w-none"
+              {/* Stop & Save button */}
+              <button
+                id="btn-stop-record"
+                onClick={handleStopRecording}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
+                title="结束转写并自动保存至历史记录"
               >
-                <option value="zh-CN" className="dark:bg-zinc-800">🇨🇳 中文普通话</option>
-                <option value="en-US" className="dark:bg-zinc-800">🇺🇸 English</option>
-                <option value="fr-FR" className="dark:bg-zinc-800">🇫🇷 Français</option>
-              </select>
-            </div>
+                <Square className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+                结束转写
+              </button>
 
-          </div>
-
-          {/* Recording Status & Waveform Canvas */}
-          {recordingState !== 'idle' && (
-            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-bold border border-sky-200 dark:border-sky-900">
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-                {recordingState === 'recording' ? '转写中' : '已暂停'} ({formatSeconds(recordingSeconds)})
-              </div>
-
-              {/* Waveform Canvas */}
-              <canvas
-                ref={canvasRef}
-                width={100}
-                height={28}
-                className="rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
-              />
+              {/* Cancel button */}
+              <button
+                id="btn-cancel-record"
+                onClick={handleCancelRecording}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 active:scale-95 transition-all cursor-pointer text-xs sm:text-sm"
+                title="取消本次转写，不保存至历史记录"
+              >
+                <X className="w-3.5 h-3.5 text-zinc-500" />
+                取消
+              </button>
             </div>
           )}
-
         </div>
+
+        {/* Row 3: Recording Status Bar */}
+        {recordingState !== 'idle' && (
+          <div className="w-full pt-0.5">
+            <div className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 rounded-xl text-xs sm:text-sm font-mono font-bold border border-sky-200 dark:border-sky-800/80 shadow-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse shrink-0" />
+              <span>{recordingState === 'recording' ? '语音实时转写中' : '录音转写已暂停'}</span>
+              <span className="opacity-80 font-semibold">({formatSeconds(recordingSeconds)})</span>
+            </div>
+          </div>
+        )}
 
         {/* Error Alert if permission/audio issue */}
         {errorMessage && (
